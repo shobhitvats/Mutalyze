@@ -1,0 +1,5 @@
+pdb_id,chain,position,wild_aa,mut_aa,exp_ddg
+1crn,A,25,THR,ASP,-0.5
+1crn,A,16,ILE,ALA,1.8
+1crn,A,25,THR,ALA,1.2
+1crn,A,16,ILE,VAL,1.2

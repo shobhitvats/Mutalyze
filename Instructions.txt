@@ -1,0 +1,270 @@
+🧬 Project Name: Mutalyze
+Comprehensive Protein Mutation Stability and Bioinformatics Analysis Platform
+🌍 Core Vision
+
+Mutalyze is an integrated Streamlit-based platform that allows scientists, bioinformaticians, and students to explore the effects of protein mutations in a structured, scientifically accurate, and visually intuitive way.
+
+Instead of relying on precompiled binaries or web servers (like FoldX or Rosetta), Mutalyze builds its calculations and predictions from first principles using molecular mechanics, thermodynamic estimation, and biological sequence analysis — all within Python.
+
+The user provides only a PDB ID (e.g., “6spo”) — and the system automatically retrieves, visualizes, mutates, simulates, and analyzes the protein for energetic and biological implications.
+
+🧩 Concept Overview
+Component	Description
+Input	Just the PDB ID (e.g., “6spo”, “1crn”). No uploads required.
+Structure Fetch	Automatically fetched from the RCSB PDB database via REST API.
+Visualization	Real-time 3D rendering (using Py3Dmol) integrated into Streamlit.
+Mutation Engine	Enumerates or selectively applies all possible amino acid substitutions.
+Energy Analysis	Calculates ΔΔG (difference in free energy) using OBC-GBSA implicit solvent and optional explicit solvent MD.
+Structural Relaxation	Performs rotamer sampling and local backbone minimization for realistic mutant structures.
+Parallelization	Uses Python’s multiprocessing/threading to run multiple mutants simultaneously.
+Biological Insights	Detects ligand proximity, chain interfaces, and active sites; builds multiple sequence alignments to assess evolutionary conservation.
+Interpretation	Automatically interprets ΔΔG values and visualizes conservation, providing a complete biological report.
+🧠 Step-by-Step Functional Pipeline
+1️⃣ Input and Structure Fetching
+
+User enters a PDB ID (case-insensitive).
+
+The backend automatically downloads the .pdb file from RCSB (https://files.rcsb.org/download/{pdb_id}.pdb).
+
+The structure is parsed via Biopython’s PDBParser.
+
+Caching is enabled so repeated requests for the same PDB ID don’t re-download.
+
+The protein is visualized in 3D with cartoon representation, color-coded by chain.
+
+Features:
+
+Automatic error handling for invalid IDs
+
+Displays metadata (chains, residues, ligands)
+
+3D viewer controls integrated in the Streamlit page
+
+2️⃣ Structure Parsing and Metadata Extraction
+
+Once the PDB is fetched, Mutalyze automatically extracts:
+
+All chains and their identifiers
+
+Residue indices and names
+
+Ligands (HETATM) and their proximity to amino acids
+
+Secondary structure composition (helix, sheet, coil)
+
+This information becomes the foundation for later site-specific analyses.
+
+3️⃣ Mutation Enumeration and Selection
+a) Automatic Enumeration
+
+Generates all possible single-point mutations (each residue mutated to the 19 other amino acids).
+
+Output: a complete mutation table with columns:
+
+Chain | Residue | WT | Mutant | Type (Core/Surface/Interface) | Ligand Proximity | Active Site Flag
+
+b) Filtering Options
+
+User can select specific:
+
+Chains to mutate
+
+Residue ranges
+
+Functional regions (interface, active-site, ligand-bound sites)
+
+c) Rotamer Sampling
+
+For each mutation, rotamers are generated from a Dunbrack-like rotamer library.
+
+Mutants are optimized by energy minimization to select the lowest-energy rotamer conformation.
+
+4️⃣ Energy and Stability Estimation
+
+Each mutation’s ΔΔG (stability difference) is computed using one of two methods:
+
+🔹 A. Implicit Solvent (OBC-GBSA)
+
+Uses OpenMM’s GBSAOBCForce.
+
+Computes energy for both wild-type and mutant:
+
+Δ
+Δ
+𝐺
+=
+𝐺
+𝑚
+𝑢
+𝑡
+𝑎
+𝑛
+𝑡
+−
+𝐺
+𝑤
+𝑖
+𝑙
+𝑑
+−
+𝑡
+𝑦
+𝑝
+𝑒
+ΔΔG=G
+mutant
+	​
+
+−G
+wild−type
+	​
+
+
+Units are converted from kJ/mol → kcal/mol.
+
+🔹 B. Explicit Solvent Pipeline (Optional)
+
+Protein is solvated in a TIP3P water box.
+
+Energy minimized and short (0.5–1 ns) restrained MD simulation is run.
+
+Average potential energy computed for both WT and mutant.
+
+🔹 C. Local Backbone Minimization
+
+Short restrained MD or gradient-based minimization allows small backbone rearrangements near the mutation site.
+
+5️⃣ Parallel and Optimized Execution
+
+Mutations are distributed across CPU cores using multiprocessing or concurrent.futures.
+
+Real-time progress bar shown in Streamlit.
+
+Intermediate results are cached to disk for recovery.
+
+Parallel Design:
+
+Main thread → splits mutation list → worker pool → computes ΔΔG per mutant → merges results
+
+6️⃣ Biological Interpretation Layer
+🧬 Proximity and Interface Detection
+
+Ligand proximity: identifies residues within 5–6 Å of ligands.
+
+Interface residues: detected between chains with atomic contact < 6 Å.
+
+Active-site mapping: optionally uses known catalytic residues (via RCSB metadata or geometry-based heuristics).
+
+🧬 MSA and Conservation Analysis
+
+Homologous sequences fetched via BLAST+.
+
+MSA built using MAFFT.
+
+Per-residue conservation scores computed using Shannon entropy or frequency-based methods.
+
+Mapped directly onto the structure via color gradients (e.g., red = highly conserved).
+
+🧬 Combined Bioenergy Table
+Chain	Res	WT	Mut	ΔΔG (kcal/mol)	Site	Conservation	Ligand Dist (Å)	Comment
+A	45	L	R	+2.3	Interface	0.88	3.2	Likely destabilizing
+A	90	S	T	-0.6	Core	0.52	8.9	Neutral
+B	122	G	D	+3.5	Active Site	0.93	2.1	Strongly destabilizing
+7️⃣ ΔΔG Interpretation and Visualization
+
+ΔΔG values are auto-interpreted using biologically meaningful thresholds:
+| |ΔΔG| (kcal/mol) | Significance |
+|------------------|---------------|----------------|
+| < 1.0 | Minor / Neutral |
+| 1.0 – 2.0 | Moderate |
+| > 2.0 | Strongly stabilizing/destabilizing |
+
+Plots available:
+
+Histogram of ΔΔG values
+
+Scatterplot of conservation vs ΔΔG
+
+Heatmap of mutation hotspots
+
+3D structural overlay: color residues by ΔΔG magnitude (e.g., blue = stabilizing, red = destabilizing).
+
+8️⃣ Output, Reports, and Downloads
+
+Users can:
+
+Download CSV of all results.
+
+Export annotated PDB file with per-residue ΔΔG and conservation mapping.
+
+Save session data for later reanalysis.
+
+🧱 Software Architecture
+Mutalyze/
+│
+├── app.py                      # Streamlit main app
+│
+├── core/
+│   ├── pdb_utils.py             # RCSB fetcher, parser
+│   ├── mutation_builder.py      # Rotamer handling, structure modification
+│   ├── energy_calc.py           # OBC GBSA and MD energy pipelines
+│   ├── md_runner.py             # Explicit solvent MD setup
+│   ├── conservation.py          # BLAST, MAFFT, entropy scoring
+│   ├── interface_analysis.py    # Ligand & interface detection
+│   ├── analysis.py              # ΔΔG interpretation, thresholds
+│   ├── parallel.py              # Thread/multiprocessing control
+│   └── visualization.py         # 3D rendering, plots
+│
+├── data/
+│   ├── rotamer_library.json
+│   └── sample_structures/
+│
+└── assets/
+    ├── css/
+    └── logo.png
+
+⚙️ Technical Stack
+Layer	Library
+GUI	Streamlit
+Structure Parsing	Biopython
+3D Visualization	Py3Dmol
+Simulation Engine	OpenMM
+Parallel Execution	multiprocessing, concurrent.futures
+Sequence Tools	BLAST+, MAFFT
+Data Analysis	Pandas, NumPy, Scipy
+Plotting	Matplotlib, Seaborn
+I/O	Requests (for RCSB API), gzip, pickle
+🚀 Implementation Phases (Milestones)
+Phase	Feature Set	Deliverable
+I	PDB ID input + RCSB fetch + 3D visualization	Working Streamlit GUI base
+II	Mutation enumeration + filtering + table	Mutation browser
+III	GBSA energy engine + ΔΔG computation	Numerical stability results
+IV	Rotamer sampling + backbone minimization	Structural refinement
+V	Explicit solvent MD pipeline	Physical realism
+VI	MSA + conservation integration	Biological interpretation
+VII	Complete analysis + visualization suite	Final research-ready platform
+🔮 Future Extensions
+
+Binding free energy prediction for ligand-protein complexes
+
+Mutational scanning mode (automatically mutate entire active sites or interfaces)
+
+Machine learning regression model trained on computed ΔΔG values
+
+Integration with AlphaFold models (auto-download predicted structures)
+
+Support for nucleic acid or protein-DNA complexes
+
+🎯 Scientific Use-Cases
+
+Rational protein design
+
+Antibody or enzyme engineering
+
+Drug-resistance mutation prediction
+
+Protein stability optimization
+
+Evolutionary conservation analysis
+
+Bioinformatics teaching and visualization
