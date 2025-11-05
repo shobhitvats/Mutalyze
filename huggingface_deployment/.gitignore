@@ -1,0 +1,63 @@
+# .gitignore for HuggingFace Spaces
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Large files (use Git LFS if needed)
+*.pdb
+*.xtc
+*.dcd
+
+# User uploads (if persistent storage enabled)
+uploads/
+user_data/
+
+# Cached results
+cache/
+.cache/
+
+# Don't ignore these critical files
+!models/*.pkl
+!data/*.pdb
+!data/*.csv
