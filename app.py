@@ -22,6 +22,10 @@ from core.conservation import ConservationAnalyzer
 from core.analysis import StabilityAnalyzer
 from core.parallel import ParallelExecutor
 from core.visualization import StructureVisualizer, PlotGenerator
+
+# Fallback simple energy calculator when OpenMM not available
+from core.simple_energy import calculate_stability_change_simple
+
 from Bio.PDB import PDBParser, PDBIO, Select
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing as mp
@@ -86,16 +90,25 @@ def process_single_mutation_optimized(args):
         mut_clean.close()
         temp_files.append(mut_clean.name)
         
-        # Calculate ΔΔG (fast mode by default)
-        # Pass mutant residue info for proper calibration
-        ddg_raw = calculate_stability_change(
-            wt_clean.name, 
-            mut_clean.name, 
-            method='gbsa', 
-            minimize=minimize,
-            mutant_residue=mutation['mut_resname'],
-            mutation_site=mutation['resid']
-        )
+        # Calculate ΔΔG
+        if OPENMM_AVAILABLE:
+            # Use full OpenMM calculation (accurate)
+            ddg_raw = calculate_stability_change(
+                wt_clean.name, 
+                mut_clean.name, 
+                method='gbsa', 
+                minimize=minimize,
+                mutant_residue=mutation['mut_resname'],
+                mutation_site=mutation['resid']
+            )
+        else:
+            # Use simplified statistical potential (fallback for Streamlit Cloud)
+            ddg_raw = calculate_stability_change_simple(
+                wt_resname=mutation['wt_resname'],
+                mut_resname=mutation['mut_resname'],
+                residue_id=mutation['resid'],
+                chain_length=100  # Approximate, will be improved with structure info
+            )
         
         if ddg_raw and -1000 < ddg_raw < 1000:
             result['ddg'] = ddg_raw
@@ -438,9 +451,15 @@ def show_single_mutation_calculator(structure, metadata, max_workers, use_minimi
     st.info(f"**Mutation:** {mutation_code} ({wt_resname} → {mut_resname} at position {residue_num}, chain {chain_id})")
     
     if not OPENMM_AVAILABLE:
-        st.warning("⚠️ OpenMM is not installed. Energy calculations are disabled.")
-        st.markdown("See the 'Multiple Mutations' tab for installation instructions.")
-        return
+        st.info("ℹ️ **Using Simplified Energy Calculator** (OpenMM not available on Streamlit Cloud)")
+        st.markdown("""
+        **Method:** Statistical potentials + empirical rules
+        - ✅ Works on Streamlit Cloud (no installation needed)
+        - ⚠️ Less accurate than full molecular dynamics
+        - 📊 Good for screening and approximate predictions
+        
+        For **highest accuracy**, run locally with OpenMM installed.
+        """)
     
     # Calculate button
     if st.button("🧪 Calculate ΔΔG", type="primary", key='single_calc'):
@@ -613,30 +632,24 @@ def show_multiple_mutations(structure, metadata, max_workers, use_minimization):
         st.markdown("### ⚡ Calculate Stability")
         
         if not OPENMM_AVAILABLE:
-            st.warning("⚠️ OpenMM is not installed. Energy calculations are disabled.")
+            st.info("ℹ️ **Using Simplified Energy Calculator** (OpenMM not available)")
+            st.markdown("""
+            **Current Method:** Statistical potentials + empirical rules
+            - ✅ Works on Streamlit Cloud deployment
+            - ⚠️ Less accurate than full molecular dynamics
+            - 📊 Good for screening and relative comparisons
             
-            with st.expander("📖 How to install OpenMM"):
-                st.markdown("""
-                OpenMM is required for ΔΔG energy calculations.
-                
-                **Installation (recommended):**
-                ```bash
-                conda install -c conda-forge openmm
-                ```
-                
-                **Alternative (may not work on all systems):**
-                ```bash
-                pip install openmm
-                ```
-                
-                After installation, restart the Streamlit app.
-                
-                **Note:** All other features (structure analysis, interface detection, 
-                mutation enumeration, visualization) work without OpenMM.
-                """)
-        else:
-            # Show v5 calibration info
-            cal_info = EmpiricalCorrection.get_model_info()
+            **Accuracy:**
+            - OpenMM (full MD): r=0.837, RMSE=0.54 kcal/mol
+            - Simplified: Approximate, best for trends
+            
+            For publication-quality results, run locally with OpenMM.
+            """)
+        
+        # Calculate button is available regardless of OpenMM
+        cal_info = EmpiricalCorrection.get_model_info()
+        
+        if OPENMM_AVAILABLE:
             
             st.success(f"""
             ⚡ **Energy Calculation - v5 Oracle Calibration Active**
