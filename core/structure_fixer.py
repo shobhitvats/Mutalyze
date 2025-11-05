@@ -8,13 +8,16 @@ from typing import Optional, Tuple
 from pathlib import Path
 import tempfile
 
+# Required imports - these are mandatory
+from Bio.PDB import PDBParser, PDBIO, Select
+
 try:
     import openmm.app as app
     import openmm
-    from Bio.PDB import PDBParser, PDBIO, Select
-    DEPS_AVAILABLE = True
+    OPENMM_AVAILABLE = True
 except ImportError:
-    DEPS_AVAILABLE = False
+    OPENMM_AVAILABLE = False
+    logging.warning("OpenMM not available. Structure fixing will use BioPython only.")
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +52,8 @@ class StructureFixer:
     """
     
     def __init__(self):
-        if not DEPS_AVAILABLE:
-            raise ImportError("OpenMM and Biopython required")
+        if not OPENMM_AVAILABLE:
+            logger.warning("OpenMM not available. Using BioPython-only structure cleaning.")
     
     def fix_structure(self, pdb_path: str, output_path: Optional[str] = None) -> Tuple[str, bool]:
         """
